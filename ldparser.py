@@ -553,16 +553,27 @@ class ldChan(object):
             self.freq)
 
 
-def decode_string(bytes):
+def decode_string(raw):
     # type: (bytes) -> str
-    """decode the bytes and remove trailing zeros
+    """Decode a fixed-width MoTeC string field.
+
+    MoTeC headers often store C-style strings in fixed-width binary fields.
+    Bytes after the first NUL can contain non-text metadata, so only decode the
+    text prefix. Real logs may also use Windows code-page characters in names.
     """
-    try:
-        return bytes.decode('ascii').strip().rstrip('\0').strip()
-    except Exception as e:
-        print("Could not decode string: %s - %s"%(e, bytes))
+    if raw is None:
         return ""
-        # raise e
+    if isinstance(raw, str):
+        return raw.split('\0', 1)[0].strip()
+
+    raw = bytes(raw).split(b'\0', 1)[0]
+    for encoding in ('ascii', 'utf-8', 'cp1252', 'latin-1'):
+        try:
+            return raw.decode(encoding).strip()
+        except UnicodeDecodeError:
+            continue
+
+    return raw.decode('latin-1', errors='replace').strip()
 
 def read_channels(f_, meta_ptr, metadata_end=None):
     # type: (str, int) -> list
